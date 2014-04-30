@@ -3,7 +3,9 @@
  * @date 2014-04-22 created
  */
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -13,6 +15,7 @@
 #include <inttypes.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <ctype.h>
 
 #include <execinfo.h>
 #include <dlfcn.h>
