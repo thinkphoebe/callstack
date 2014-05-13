@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 
-void callstack_print();
+void callstack_print(void);
 
 
 typedef int (*callstack_output_func)(const char *format, ...);

@@ -43,8 +43,8 @@ static void read_maps(map_item_t *items, int *items_count /* in and out */, int 
     char buf[1536] = { 0 };
     FILE *fp = NULL;
     int read_count = 0;
-    char *p;
     int len;
+    char *p;
 
     if (pid < 0)
         pid = getpid();
@@ -172,7 +172,7 @@ static int read_by_addr2line(void *addr, const char *path, char *buf_out, int bu
 }
 
 
-void callstack_print()
+void callstack_print(void)
 {
     char exe_path[1024] = { 0 };
     void *samples[MAX_FRAMES];
@@ -182,8 +182,8 @@ void callstack_print()
     int i;
 
     char buf[1536] = { 0 };
-    void *addr;
-    void *addr_conv;
+    char *addr;
+    char *addr_conv;
     int index;
     Dl_info info;
 
@@ -237,7 +237,6 @@ OK:
     }
     m_print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
 
-END:
     free(items);
 }
 
@@ -267,13 +266,14 @@ static void signal_handler(int signum, siginfo_t *info, void *ptr)
 
 int callstack_set_print_onsignal(int signum)
 {
+    struct sigaction action;
+
     if (signum < 0 || signum >= _NSIG)
     {
         m_print("invalid signum %d\n", signum);
         return -1;
     }
 
-    struct sigaction action;
     memset(&action, 0, sizeof(action));
     action.sa_sigaction = signal_handler;
     action.sa_flags = SA_SIGINFO | SA_ONSTACK;
