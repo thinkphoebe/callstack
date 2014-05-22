@@ -16,6 +16,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <signal.h>
 
 #include <execinfo.h>
 #include <dlfcn.h>
@@ -247,11 +248,6 @@ void callstack_set_output_func(callstack_output_func func)
 }
 
 
-#include <signal.h>
-
-//_NSIG is the biggest signal number + 1
-static struct sigaction m_sigbackups[_NSIG] = { 0 };
-
 static void signal_handler(int signum, siginfo_t *info, void *ptr)
 {
     m_print("========> signal (%d) catched <========\n", signum);
@@ -261,7 +257,8 @@ static void signal_handler(int signum, siginfo_t *info, void *ptr)
 
     callstack_print();
 
-    signal(signum, m_sigbackups[signum - 1].sa_handler);
+    signal(signum, SIG_DFL);
+    kill(getpid(), signum);
 }
 
 int callstack_set_print_onsignal(int signum)
@@ -277,7 +274,7 @@ int callstack_set_print_onsignal(int signum)
     memset(&action, 0, sizeof(action));
     action.sa_sigaction = signal_handler;
     action.sa_flags = SA_SIGINFO | SA_ONSTACK;
-    if (sigaction(signum, &action, &m_sigbackups[signum - 1]))
+    if (sigaction(signum, &action, NULL))
     {
         m_print("sigaction FAILED! %s\n", strerror(errno));
         return -1;
