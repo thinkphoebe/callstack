@@ -1,8 +1,3 @@
-/**
- * @author Ye Shengnan
- * @date 2014-04-22 created
- */
-
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
@@ -17,6 +12,7 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <signal.h>
+#include <stdarg.h>
 
 #include <execinfo.h>
 #include <dlfcn.h>
@@ -35,8 +31,16 @@ typedef struct _map_item_t
     char path[MAX_FILE_PATH];
 } map_item_t;
 
+static void print_stderr(char* fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(stderr, fmt, args);
+    va_end(args);
+}
+
 static char m_addr2line_path[MAX_FILE_PATH] = "addr2line";
-static callstack_output_func m_print = printf;
+static callstack_output_func m_print = print_stderr;
 
 
 static void read_maps(map_item_t *items, int *items_count /* in and out */, int pid)
@@ -58,7 +62,7 @@ static void read_maps(map_item_t *items, int *items_count /* in and out */, int 
         *items_count = 0;
     }
 
-    while (fgets(buf, 1535, fp) != NULL)
+    while (fgets(buf, sizeof(buf) - 1, fp) != NULL)
     {
         len = strlen(buf);
         if (buf[len - 1] == '\n')
@@ -123,7 +127,7 @@ static int read_by_addr2line(void *addr, const char *path, char *buf_out, int bu
 	FILE *fp;
 	char *p;
 
-	sprintf(buf, "%s -C -e %s -f -i %p", m_addr2line_path, path, addr);
+	snprintf(buf, sizeof(buf), "%s -C -e %s -f -i %p", m_addr2line_path, path, addr);
 
 	fp = popen (buf, "r");
 	if (fp == NULL)
@@ -133,10 +137,10 @@ static int read_by_addr2line(void *addr, const char *path, char *buf_out, int bu
 	}
 
 	//function name
-	fgets(buf_func, sizeof(buf_func), fp);
+	fgets(buf_func, sizeof(buf_func) - 1, fp);
 
 	//file and line
-	fgets(buf, sizeof(buf), fp);
+	fgets(buf, sizeof(buf) - 1, fp);
 
 	if (buf_func[0] == '?' && buf[0] == '?')
     {
@@ -156,14 +160,12 @@ static int read_by_addr2line(void *addr, const char *path, char *buf_out, int bu
     p = buf;
 
     //file name is until ':'
-    while (*p != ':')
+    while (*p != ':' && p < buf + sizeof(buf) - 1)
         p++;
     *p++ = 0;
 
     //after file name follows line number
-    sscanf (p, "%d", &line);
-
-    if (line >= 0)
+    if (sscanf (p, "%d", &line) == 1 && line >= 0)
         snprintf(buf_out, buf_size, "func: %s, file: %s L%d, module: %s", buf_func, buf, line, path);
     else
         snprintf(buf_out, buf_size, "func: %s, file: %s, module: %s", buf_func, buf, path);
@@ -173,7 +175,7 @@ static int read_by_addr2line(void *addr, const char *path, char *buf_out, int bu
 }
 
 
-void callstack_print(void)
+void callstack_print(int max_frames)
 {
     char exe_path[1024] = { 0 };
     void *samples[MAX_FRAMES];
@@ -204,7 +206,7 @@ void callstack_print(void)
 
     read_maps(items, &items_count, -1);
     
-    frames = backtrace(samples, MAX_FRAMES);
+    frames = backtrace(samples, (max_frames > 0 && max_frames > MAX_FRAMES) ? max_frames : MAX_FRAMES);
     m_print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
     //start from 1 to skip callstack_print self
     for (i = 1; i < frames; i++)
@@ -255,7 +257,7 @@ static void signal_handler(int signum, siginfo_t *info, void *ptr)
     m_print("code: %d\n", info->si_code);
     m_print("addr: %p\n", info->si_addr);
 
-    callstack_print();
+    callstack_print(-1);
 
     signal(signum, SIG_DFL);
     kill(getpid(), signum);

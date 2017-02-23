@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 
-void callstack_print(void);
+void callstack_print(int max_frames);
 
 
 typedef int (*callstack_output_func)(const char *format, ...);
