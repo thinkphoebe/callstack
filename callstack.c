@@ -31,12 +31,14 @@ typedef struct _map_item_t
     char path[MAX_FILE_PATH];
 } map_item_t;
 
-static void print_stderr(char* fmt, ...)
+static int print_stderr(const char* fmt, ...)
 {
     va_list args;
+    int ret;
     va_start(args, fmt);
-    vfprintf(stderr, fmt, args);
+    ret = vfprintf(stderr, fmt, args);
     va_end(args);
+    return ret;
 }
 
 static char m_addr2line_path[MAX_FILE_PATH] = "addr2line";
@@ -217,10 +219,13 @@ void callstack_print(int max_frames)
         index = match_file(items, items_count, addr);
         if (index >= 0)
         {
-            if (exe_path[0] != '\0' && strcmp(exe_path, items[index].path) != 0)
-               addr_conv -= items[index].start;
-
             //addr2line use the converted address
+            //for .so file, address need to subtract by items[index].start.
+            //for exe file, address need to subtract for some OS (such as Debian 9),
+            //but needn't for others (such as CentOS 6.0). So try twice here.
+            if (read_by_addr2line(addr_conv, items[index].path, buf, sizeof(buf)) == 0)
+                goto OK;
+            addr_conv -= items[index].start;
             if (read_by_addr2line(addr_conv, items[index].path, buf, sizeof(buf)) == 0)
                 goto OK;
         }
